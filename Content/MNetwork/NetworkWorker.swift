@@ -12,57 +12,6 @@ import AppKit
 import UIKit
 #endif
 
-public struct ErrorResponse: Error {
-    public let response: URLResponse?
-    public let err: Error?
-
-    public init(response: URLResponse?, err: Error?) {
-        self.response = response
-        self.err = err
-    }
-}
-//----- MODEL -----//
-public struct PlainResource {
-    public let request: URLRequest
-    public let result: Result<Data, NSError>?
-
-    public init (request: URLRequest, result: Result<Data, NSError>? = nil) {
-        self.request = request
-        self.result = result
-    }
-}
-
-public struct UrlResponseResource {
-    public let request: URLRequest
-    public let result: Result<ResultConstruct, ErrorResponse>?
-
-    public init(request: URLRequest, result: Result<ResultConstruct, ErrorResponse>?) {
-        self.request = request
-        self.result = result
-    }
-
-    public struct ResultConstruct {
-        public var response: URLResponse?
-        public var data: Data?
-    }
-}
-
-public struct Resource<T> {
-    let request: URLRequest
-    let parse: (Data) throws -> T?
-}
-
-extension Resource where T: Decodable {
-    public init(request: URLRequest) {
-        self.request = request
-        self.parse = { data in
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .millisecondsSince1970
-            return try decoder.decode(T.self, from: data)
-        }
-    }
-}
-
 //----- URLSession -----//
 public enum HTTPConfiguratorMethod: String {
     case options = "OPTIONS"
@@ -231,75 +180,27 @@ public final class URLSessionFactory: NSObject {
         session = URLSession(configuration: URLSessionConfiguration.default,
                              delegate: self,
                              delegateQueue: backgroundQueue)
-        //        session = URLSession.shared
     }
 
-    public func load<T>(resource: Resource<T>, completion: @escaping (T?, _ err: ErrorResponse?) -> Void) {
-        self.debug.logRequest(resource.request)
-
-        session.dataTask(with: resource.request, completionHandler: { (data, response, err) in
-            guard let data = data else {
-                self.debug.logError(err!, response: response)
-                completion(nil, self.parseError(response: response, error: err, data: nil))
-                return
-            }
-
-            self.debug.logResponse(response, data: data)
-
-            do {
-                let parsedData = try resource.parse(data)
-                completion(parsedData, nil)
-            } catch (let decodeErr) {
-                self.debug.logError(decodeErr, response: nil)
-                completion(nil, self.parseError(response: response, error: decodeErr, data: data))
-            }
-
-        }).resume()
-    }
-
-    public func plainLoad(resource: UrlResponseResource, completition: @escaping(_ result: Result<UrlResponseResource.ResultConstruct, ErrorResponse>) -> Void) -> URLSessionDataTask {
+    public func plainLoad(resource: UrlResponseResource, completition: @escaping(_ result: Result<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse>) -> Void) -> URLSessionDataTask {
         self.debug.logRequest(resource.request)
 
         let task = session.dataTask(with: resource.request, completionHandler: { (data, response, err) in
             if let error = err {
                 self.debug.logError(error, response: response)
 
-                let defaultErr = ErrorResponse.init(response: response, err: error)
+                let defaultErr = UrlResponseResource.ErrorResponse(response: response, err: error, data: data)
 
                 completition(.failure(defaultErr))
                 return
             }
 
             self.debug.logResponse(response, data: data)
-            let data = UrlResponseResource.ResultConstruct.init(response: response, data: data)
+            let data = UrlResponseResource.ResultConstruct(response: response, data: data)
             completition(.success(data))
         })
         task.resume()
         return task
-    }
-
-    public func plainLoad(resource: PlainResource, completion: @escaping (_ result: Result<Data, NSError>) -> Void) {
-        session.dataTask(with: resource.request, completionHandler: { (data, response, error) in
-            let result: Result<Data, NSError>
-            if let err = error {
-                let error = NSError.init(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: err.localizedDescription])
-                result = .failure(error)
-                DispatchQueue.main.async {
-                    completion(result)
-                }
-                return
-            }
-
-            result = .success(data!)
-            DispatchQueue.main.async {
-                completion(result)
-            }
-        }).resume()
-    }
-
-    private func parseError(response: URLResponse?, error: Error?, data: Data?) -> ErrorResponse? {
-        if error?.localizedDescription == "cancelled" { return nil }
-        return ErrorResponse.init(response: response, err: error)
     }
 
     deinit {

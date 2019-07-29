@@ -43,6 +43,10 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		4679034922EF5B2B00BA74EE /* Serializable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4679034822EF5B2B00BA74EE /* Serializable.swift */; };
+		4679034A22EF5B3500BA74EE /* Serializable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4679034822EF5B2B00BA74EE /* Serializable.swift */; };
+		4679034C22EF5B6400BA74EE /* UrlResponseResource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4679034B22EF5B6400BA74EE /* UrlResponseResource.swift */; };
+		4679034D22EF5B6400BA74EE /* UrlResponseResource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4679034B22EF5B6400BA74EE /* UrlResponseResource.swift */; };
 		46D7875F226E3FAA00D29C7C /* MKit_iOS.h in Headers */ = {isa = PBXBuildFile; fileRef = 46D7875D226E3FAA00D29C7C /* MKit_iOS.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		46D7876C226E3FD000D29C7C /* MKit_mac.h in Headers */ = {isa = PBXBuildFile; fileRef = 46D7876A226E3FD000D29C7C /* MKit_mac.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		46D7879C226F74ED00D29C7C /* Data+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D7879B226F74ED00D29C7C /* Data+Extensions.swift */; };
@@ -60,6 +64,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		4679034822EF5B2B00BA74EE /* Serializable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Serializable.swift; sourceTree = "<group>"; };
+		4679034B22EF5B6400BA74EE /* UrlResponseResource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UrlResponseResource.swift; sourceTree = "<group>"; };
 		46D7875A226E3FAA00D29C7C /* MKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		46D7875D226E3FAA00D29C7C /* MKit_iOS.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MKit_iOS.h; sourceTree = "<group>"; };
 		46D7875E226E3FAA00D29C7C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -172,6 +178,8 @@
 			children = (
 				46D787A6226F759400D29C7C /* NetworkWorker.swift */,
 				46D787AB226F779C00D29C7C /* EndpointTarget.swift */,
+				4679034822EF5B2B00BA74EE /* Serializable.swift */,
+				4679034B22EF5B6400BA74EE /* UrlResponseResource.swift */,
 			);
 			path = MNetwork;
 			sourceTree = "<group>";
@@ -368,11 +376,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4679034922EF5B2B00BA74EE /* Serializable.swift in Sources */,
 				46D787B5226F7EBB00D29C7C /* AlertWorker.swift in Sources */,
 				46D787A3226F755600D29C7C /* DebugWorker.swift in Sources */,
 				46D787A0226F752500D29C7C /* ConcurencyWorker.swift in Sources */,
 				46D787AC226F779C00D29C7C /* EndpointTarget.swift in Sources */,
 				46D787A7226F759400D29C7C /* NetworkWorker.swift in Sources */,
+				4679034C22EF5B6400BA74EE /* UrlResponseResource.swift in Sources */,
 				46D7879C226F74ED00D29C7C /* Data+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -381,11 +391,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4679034A22EF5B3500BA74EE /* Serializable.swift in Sources */,
 				46D787AA226F76D600D29C7C /* NSImage+Extension.swift in Sources */,
 				46D787AD226F779C00D29C7C /* EndpointTarget.swift in Sources */,
 				46D787A4226F755600D29C7C /* DebugWorker.swift in Sources */,
 				46D787A1226F752500D29C7C /* ConcurencyWorker.swift in Sources */,
 				46D787A8226F759400D29C7C /* NetworkWorker.swift in Sources */,
+				4679034D22EF5B6400BA74EE /* UrlResponseResource.swift in Sources */,
 				46D7879D226F74F700D29C7C /* Data+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -396,12 +408,14 @@
 		46D78753226E3F8A00D29C7C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 			};
 			name = Debug;
 		};
 		46D78754226E3F8A00D29C7C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 			};
 			name = Release;
 		};
@@ -465,7 +479,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = "MKit-iOS/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 12.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -541,7 +555,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = "MKit-iOS/Info.plist";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 12.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
