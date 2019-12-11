@@ -12,19 +12,6 @@ import AppKit
 import UIKit
 #endif
 
-//----- URLSession -----//
-public enum HTTPConfiguratorMethod: String {
-    case options = "OPTIONS"
-    case get     = "GET"
-    case head    = "HEAD"
-    case post    = "POST"
-    case put     = "PUT"
-    case patch   = "PATCH"
-    case delete  = "DELETE"
-    case trace   = "TRACE"
-    case connect = "CONNECT"
-}
-
 enum HTTPHeaderConfiguratorType: String {
     case contentType = "Content-Type"
 }
@@ -34,9 +21,9 @@ public struct URLRequestFactoryConfigurator {
     public var httpServerUrlString: String
     public var httpEndpointUrlString: String
     public var httpUrlStringPath: String
-    public var httpHeadParameters: [String : String]?
-    public var httpBodyParameters: [String : Any?]? // json
-    public var httpBodyParametersArray: [[String : Any]]? // json
+    public var httpHeadParameters: [String: String]?
+    public var httpBodyParameters: [String: Any?]? // json
+    public var httpBodyParametersArray: [[String: Any]]? // json
     public var httpUrlQueryParameters: [String: String]?
     #if os(macOS)
     public var image: NSImage?
@@ -148,7 +135,6 @@ public struct URLRequestFactoryConfigurator {
     func allHttpHeaderFields() -> [String : String] {
         var httpHeaders = httpHeadParameters ?? [String : String]()
         httpHeaders[HTTPHeaderConfiguratorType.contentType.rawValue] = "application/json; charset=utf-8"
-        //        httpHeaders[HTTPHeaderConfiguratorType.contentType.rawValue] = (image != nil || data != nil) ? "multipart/form-data; boundary=\(uploadBoundary)" : "application/json; charset=utf-8"
 
         return httpHeaders
     }
@@ -168,53 +154,4 @@ public struct URLRequestFactory {
     }
 }
 
-public final class URLSessionFactory: NSObject {
-    var session: URLSession!
-    let backgroundQueue = OperationQueue()
-    private lazy var debug = DebugWorker()
-    private let successfulStatusCodes = 200 ..< 300
 
-    public override init() {
-        super.init()
-
-        session = URLSession(configuration: URLSessionConfiguration.default,
-                             delegate: self,
-                             delegateQueue: backgroundQueue)
-    }
-
-    public func plainLoad(resource: UrlResponseResource, completition: @escaping(_ result: Result<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse>) -> Void) -> URLSessionDataTask {
-        self.debug.logRequest(resource.request)
-
-        let task = session.dataTask(with: resource.request, completionHandler: { (data, response, err) in
-            if let error = err {
-                self.debug.logError(error, response: response)
-
-                let defaultErr = UrlResponseResource.ErrorResponse(response: response, err: error, data: data)
-
-                completition(.failure(defaultErr))
-                return
-            }
-
-            self.debug.logResponse(response, data: data)
-            let data = UrlResponseResource.ResultConstruct(response: response, data: data)
-            completition(.success(data))
-        })
-        task.resume()
-        return task
-    }
-
-    deinit {
-        //to release the delegate strong reference
-        session.finishTasksAndInvalidate()
-    }
-}
-
-extension URLSessionFactory: URLSessionDelegate {
-
-}
-
-extension URLSessionFactory: URLSessionTaskDelegate {
-    public func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(nil)
-    }
-}

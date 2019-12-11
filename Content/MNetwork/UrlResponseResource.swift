@@ -19,6 +19,11 @@ public struct UrlResponseResource {
     public struct ResultConstruct: Serializable {
         public var response: URLResponse?
         public var data: Data?
+
+        public init(response: URLResponse?, data: Data?) {
+            self.response = response
+            self.data = data
+        }
     }
 
     public struct ErrorResponse: Error, Serializable {
