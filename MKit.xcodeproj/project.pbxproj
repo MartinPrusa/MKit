@@ -110,7 +110,7 @@
 		46D787A9226F76D600D29C7C /* NSImage+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSImage+Extension.swift"; sourceTree = "<group>"; };
 		46D787AB226F779C00D29C7C /* EndpointTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndpointTarget.swift; sourceTree = "<group>"; };
 		46D787B4226F7EBB00D29C7C /* AlertWorker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertWorker.swift; sourceTree = "<group>"; };
-		46F53ED123A16456000D9F67 /* NetworkTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NetworkTest.swift; path = Content/UnitTests/NetworkTest.swift; sourceTree = "<group>"; };
+		46F53ED123A16456000D9F67 /* NetworkTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTest.swift; sourceTree = "<group>"; };
 		46F53ED723A16500000D9F67 /* MKitTests-mac.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "MKitTests-mac.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		46F53ED923A16500000D9F67 /* MKitTests_mac.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MKitTests_mac.swift; sourceTree = "<group>"; };
 		46F53EDB23A16500000D9F67 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -160,7 +160,6 @@
 				46A665E823A163CF00DEB2D9 /* MKitTests-iOS */,
 				46F53ED823A16500000D9F67 /* MKitTests-mac */,
 				46D7875B226E3FAA00D29C7C /* Products */,
-				46F53ED123A16456000D9F67 /* NetworkTest.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -195,6 +194,7 @@
 		46D78778226E40C700D29C7C /* Content */ = {
 			isa = PBXGroup;
 			children = (
+				46F53EF423A17FE5000D9F67 /* UnitTests */,
 				46D787B3226F7E9D00D29C7C /* MUIKitFoundation */,
 				46D787A5226F757000D29C7C /* MNetwork */,
 				46D78799226F74CD00D29C7C /* MFoundation */,
@@ -257,6 +257,14 @@
 				46F53EDB23A16500000D9F67 /* Info.plist */,
 			);
 			path = "MKitTests-mac";
+			sourceTree = "<group>";
+		};
+		46F53EF423A17FE5000D9F67 /* UnitTests */ = {
+			isa = PBXGroup;
+			children = (
+				46F53ED123A16456000D9F67 /* NetworkTest.swift */,
+			);
+			path = UnitTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
