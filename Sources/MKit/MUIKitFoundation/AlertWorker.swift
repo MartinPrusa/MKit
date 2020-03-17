@@ -5,6 +5,7 @@
 //  Created by Martin Prusa on 4/23/19.
 //
 
+#if os(iOS)
 import UIKit
 
 public final class AlertWorker {
@@ -95,4 +96,4 @@ public final class AlertWorker {
         return actionSheet
     }
 }
-
+#endif
