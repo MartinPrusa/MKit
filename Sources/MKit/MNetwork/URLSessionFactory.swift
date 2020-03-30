@@ -15,7 +15,6 @@ public final class URLSessionFactory: NSObject {
     }()
     private lazy var debug = DebugWorker()
     private var tasks: [URLSessionTask] = [URLSessionTask]()
-    private var cancelables: [String: AnyCancellable] = [String: AnyCancellable]()
     private let successfulStatusCodes = 200 ..< 300
 
     public static let shared = URLSessionFactory()
@@ -59,26 +58,24 @@ public final class URLSessionFactory: NSObject {
         return task
     }
 
-    public func plainLoadDecoded<T: Decodable>(resource: UrlResponseResource, decodable: T.Type, completion: @escaping(T?, Error?) -> Void) {
-        let cancelable = session.dataTaskPublisher(for: resource.request)
-            .map{ $0.data }
-            .receive(on: RunLoop.main)
-            .decode(type: decodable, decoder: JSONDecoder())
-            .eraseToAnyPublisher()
-            .sink(receiveCompletion: { err in
-                self.cancelables.removeValue(forKey: resource.request.url!.absoluteString)
-                switch err {
-                    case .failure(let error):
-                        completion(nil, error)
-                    default:
-                        completion(nil, nil)
+    public func plainLoadPublisher(resource: UrlResponseResource) -> AnyPublisher<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse> {
+        return session.dataTaskPublisher(for: resource.request)
+            .tryMap({ (data, response) -> UrlResponseResource.ResultConstruct in
+                if let response = response as? HTTPURLResponse, self.successfulStatusCodes.contains(response.statusCode) == false {
+                    throw UrlResponseResource.ErrorResponse(response: response, err: nil, data: data)
                 }
-            }) { value in
-                self.cancelables.removeValue(forKey: resource.request.url!.absoluteString)
-                completion(value, nil)
-            }
 
-        cancelables[resource.request.url!.absoluteString] = cancelable
+                return UrlResponseResource.ResultConstruct(response: response, data: data)
+            })
+            .mapError({ error -> UrlResponseResource.ErrorResponse in
+                if let err = error as? UrlResponseResource.ErrorResponse {
+                    return err
+                } else {
+                    return UrlResponseResource.ErrorResponse(response: nil, err: error, data: nil)
+                }
+            })
+            .receive(on: RunLoop.main)
+            .eraseToAnyPublisher()
     }
 
     public func plainLoadDecodedPublisher<T: Decodable>(resource: UrlResponseResource, decodable: T.Type) -> AnyPublisher<T, UrlResponseResource.ErrorResponse> {
@@ -105,15 +102,11 @@ public final class URLSessionFactory: NSObject {
     deinit {
         //to release the delegate strong reference
         session.finishTasksAndInvalidate()
-        cancelables.removeAll()
     }
 }
 
 extension URLSessionFactory {
     public func cancelAllTasks() {
-        cancelables.forEach({ $1.cancel() })
-        cancelables.removeAll()
-
         guard tasks.isEmpty == false else { return }
         tasks.forEach({ $0.cancel() })
     }
