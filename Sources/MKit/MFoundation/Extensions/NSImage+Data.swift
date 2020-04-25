@@ -6,6 +6,7 @@
 //  Copyright © 2020 Martin Prusa. All rights reserved.
 //
 
+#if os(macOS)
 import AppKit
 extension NSImage {
     func jpegData(compressionQuality: Double) -> Data? {
@@ -15,3 +16,4 @@ extension NSImage {
         return jpegData
     }
 }
+#endif
