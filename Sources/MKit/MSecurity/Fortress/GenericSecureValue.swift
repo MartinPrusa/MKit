@@ -38,7 +38,7 @@ extension GenericSecureValueError: CustomStringConvertible {
 public struct GenericSecureValue: GenericSecureValueConvertible {
     public var dataValue: Data
 
-    init<T>(string pwd: T) throws where T: StringProtocol {
+    public init<T>(string pwd: T) throws where T: StringProtocol {
         do {
             guard let pwdData = pwd.data(using: .utf8) else { throw GenericSecureValueError.cannotConvertStringToData }
             try self.init(with: pwdData)

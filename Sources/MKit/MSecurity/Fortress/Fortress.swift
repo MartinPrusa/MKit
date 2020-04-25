@@ -30,7 +30,7 @@ public final class Fortress {
         return osStatus
     }
 
-    func delete(account: String) throws {
+    public func delete(account: String) throws {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecUseDataProtectionKeychain: true,
@@ -46,7 +46,7 @@ public final class Fortress {
         }
     }
 
-    func value<T: GenericSecureValueConvertible>(account: String) throws -> T? {
+    public func value<T: GenericSecureValueConvertible>(account: String) throws -> T? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecReturnData: true,
