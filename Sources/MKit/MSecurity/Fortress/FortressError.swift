@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct FortressError: Error, CustomStringConvertible {
+public struct FortressError: Error, CustomStringConvertible {
     var errMessage: String
 
     init(_ message: String) {
@@ -19,13 +19,13 @@ struct FortressError: Error, CustomStringConvertible {
     }
 }
 
-extension FortressError {
-    public var localizedDescription: String {
+public extension FortressError {
+    var localizedDescription: String {
         return errMessage
     }
 }
 
-extension OSStatus {
+public extension OSStatus {
     var errMessage: String {
         guard let msg = SecCopyErrorMessageString(self, nil) as String? else { return String(self) }
         return msg

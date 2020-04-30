@@ -25,6 +25,29 @@ public final class Fortress {
 
         let osStatus = SecItemAdd(query as CFDictionary, nil)
 
+        guard osStatus != errSecDuplicateItem else { return try update(genericValue: genericValue, account: account) }
+
+        guard osStatus == errSecSuccess else { throw FortressError("Unable to store item: \(osStatus.errMessage)") }
+
+        return osStatus
+    }
+
+    public func update<T: GenericSecureValueConvertible>(genericValue: T, account: String) throws -> OSStatus {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrAccount: account,
+            kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
+            kSecUseDataProtectionKeychain: true
+        ]
+
+        let attributesToUpdate: [CFString: Any] = [
+            kSecValueData: genericValue.dataValue
+        ]
+
+        let osStatus = SecItemUpdate(query as CFDictionary, attributesToUpdate as CFDictionary)
+
+        guard osStatus != errSecItemNotFound else { return try save(genericValue: genericValue, account: account) }
+
         guard osStatus == errSecSuccess else { throw FortressError("Unable to store item: \(osStatus.errMessage)") }
 
         return osStatus
