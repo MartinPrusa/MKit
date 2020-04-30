@@ -19,6 +19,8 @@ public final class URLSessionFactory: NSObject {
 
     public static let shared = URLSessionFactory()
     public var isDebugEndabled = false
+    private var isSSLPiningEnabled = false
+    public var sslCertificate: SSLCertificate?
 
     private override init() {
         super.init()
@@ -26,6 +28,8 @@ public final class URLSessionFactory: NSObject {
 
     @discardableResult
     public func plainLoad(resource: UrlResponseResource, completition: @escaping(_ result: Result<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse>) -> Void) -> URLSessionDataTask {
+        isSSLPiningEnabled = resource.isSslPinningEnabled
+
         if self.isDebugEndabled == true {
             self.debug.logRequest(resource.request)
         }
@@ -59,6 +63,8 @@ public final class URLSessionFactory: NSObject {
     }
 
     public func plainLoadPublisher(resource: UrlResponseResource) -> AnyPublisher<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse> {
+        isSSLPiningEnabled = resource.isSslPinningEnabled
+
         return session.dataTaskPublisher(for: resource.request)
             .tryMap({ (data, response) -> UrlResponseResource.ResultConstruct in
                 if let response = response as? HTTPURLResponse, self.successfulStatusCodes.contains(response.statusCode) == false {
@@ -79,6 +85,8 @@ public final class URLSessionFactory: NSObject {
     }
 
     public func plainLoadDecodedPublisher<T: Decodable>(resource: UrlResponseResource, decodable: T.Type) -> AnyPublisher<T, UrlResponseResource.ErrorResponse> {
+        isSSLPiningEnabled = resource.isSslPinningEnabled
+
         return session.dataTaskPublisher(for: resource.request)
             .tryMap({ (data, response) -> Data in
                 if let response = response as? HTTPURLResponse, self.successfulStatusCodes.contains(response.statusCode) == false {
@@ -130,10 +138,56 @@ extension URLSessionFactory: URLSessionTaskDelegate {
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         removeTask(by: task.taskIdentifier)
     }
+}
 
-    public func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+extension URLSessionFactory: URLSessionDelegate {
+    public func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+
+        guard isSSLPiningEnabled == true else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
+        guard let serverTrust = challenge.protectionSpace.serverTrust, let certificate = SecTrustGetCertificateAtIndex(serverTrust, 0) else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+
         switch challenge.protectionSpace.authenticationMethod {
             case NSURLAuthenticationMethodServerTrust:
+
+                // Set SSL policies for domain name check
+                let policies = NSMutableArray()
+                policies.add(SecPolicyCreateSSL(true, (challenge.protectionSpace.host as CFString)))
+                SecTrustSetPolicies(serverTrust, policies)
+
+                // Evaluate server certificate
+                var error: CFError? = nil
+                let isServerTrusted = SecTrustEvaluateWithError(serverTrust, &error)
+
+                guard let sslCertificate = sslCertificate else {
+                    completionHandler(.cancelAuthenticationChallenge, nil)
+                    return
+                }
+
+                // Get remote certification data
+                let remoteCertificateData: Data = SecCertificateCopyData(certificate) as Data
+                let localCertificateData: Data = SecCertificateCopyData(sslCertificate.certificate) as Data
+
+                if isServerTrusted == true, remoteCertificateData == localCertificateData {
+                    let credential:URLCredential = URLCredential(trust: serverTrust)
+                    completionHandler(.useCredential, credential)
+                } else {
+                    completionHandler(.cancelAuthenticationChallenge, nil)
+                }
+
+            case NSURLAuthenticationMethodHTTPBasic, NSURLAuthenticationMethodHTTPDigest, NSURLAuthenticationMethodNTLM,
+                   NSURLAuthenticationMethodNegotiate, NSURLAuthenticationMethodClientCertificate:
+                guard challenge.previousFailureCount == 0 else {
+                    completionHandler(.rejectProtectionSpace, nil)
+                    return
+                }
+
                 completionHandler(.performDefaultHandling, nil)
             default:
                 completionHandler(.performDefaultHandling, nil)
