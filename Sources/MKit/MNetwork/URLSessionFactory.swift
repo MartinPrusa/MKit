@@ -130,4 +130,13 @@ extension URLSessionFactory: URLSessionTaskDelegate {
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         removeTask(by: task.taskIdentifier)
     }
+
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        switch challenge.protectionSpace.authenticationMethod {
+            case NSURLAuthenticationMethodServerTrust:
+                completionHandler(.performDefaultHandling, nil)
+            default:
+                completionHandler(.performDefaultHandling, nil)
+        }
+    }
 }
