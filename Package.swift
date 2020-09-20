@@ -14,6 +14,10 @@ let package = Package(
         .library(
             name: "MKit",
             targets: ["MKit"]),
+        .library(
+            name: "MSecurity",
+            targets: ["MSecurity"]
+        )
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -25,6 +29,7 @@ let package = Package(
         .target(
             name: "MKit",
             dependencies: []),
+        .target(name: "MSecurity", dependencies: [], path: "Sources/MSecurity"),
         .testTarget(
             name: "MKitTests",
             dependencies: ["MKit"]),

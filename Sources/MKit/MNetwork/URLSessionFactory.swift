@@ -21,6 +21,7 @@ public final class URLSessionFactory: NSObject {
     public var isDebugEndabled = false
     private var isSSLPiningEnabled = false
     public var sslCertificate: SSLCertificate?
+    private var isRemovingAllNotRunningTasks = false
 
     private override init() {
         super.init()
@@ -120,8 +121,11 @@ extension URLSessionFactory {
     }
 
     fileprivate func removeAllNotRunningTasks() {
+        guard isRemovingAllNotRunningTasks == false else { return }
         guard tasks.isEmpty == false else { return }
+        isRemovingAllNotRunningTasks = true
         tasks.removeAll(where: { $0.state != .running })
+        isRemovingAllNotRunningTasks = false
     }
 
     fileprivate func removeTask(by identifier: Int) {
