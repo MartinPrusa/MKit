@@ -108,6 +108,24 @@ public final class URLSessionFactory: NSObject {
             .eraseToAnyPublisher()
     }
 
+    @available(iOS 15.0.0, *)
+    public func plainLoadDecoded<T: Decodable>(resource: UrlResponseResource, decodable: T.Type) async -> Result<T, UrlResponseResource.ErrorResponse> {
+        isSSLPiningEnabled = resource.isSslPinningEnabled
+
+        guard
+            let (data, response) = try? await session.data(for: resource.request, delegate: self),
+            let urlResponse = response as? HTTPURLResponse,
+            self.successfulStatusCodes.contains(urlResponse.statusCode) == true
+        else {
+            return .failure(.unknownError)
+        }
+        let decoder = JSONDecoder()
+        guard let decoded = try? decoder.decode(decodable, from: data) else {
+            return .failure(.init(response: response, err: nil, data: data))
+        }
+        return .success(decoded)
+    }
+
     deinit {
         //to release the delegate strong reference
         session.finishTasksAndInvalidate()
@@ -121,11 +139,8 @@ extension URLSessionFactory {
     }
 
     fileprivate func removeAllNotRunningTasks() {
-        guard isRemovingAllNotRunningTasks == false else { return }
         guard tasks.isEmpty == false else { return }
-        isRemovingAllNotRunningTasks = true
         tasks.removeAll(where: { $0.state != .running })
-        isRemovingAllNotRunningTasks = false
     }
 
     fileprivate func removeTask(by identifier: Int) {

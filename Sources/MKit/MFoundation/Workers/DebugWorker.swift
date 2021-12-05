@@ -21,9 +21,7 @@ public struct DebugWorker {
         return isDebug
     }()
 
-    public init() {
-
-    }
+    public init() { }
 
     // MARK: Log networking
 

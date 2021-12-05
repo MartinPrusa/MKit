@@ -40,3 +40,9 @@ public struct UrlResponseResource {
         }
     }
 }
+
+public extension UrlResponseResource.ErrorResponse {
+    static var unknownError: UrlResponseResource.ErrorResponse {
+        .init(response: nil, err: nil, data: nil)
+    }
+}
