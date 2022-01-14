@@ -6,17 +6,17 @@
 //
 
 import Foundation
-import MobileCoreServices
+import UIKit
 
 public struct PasteboardWorker {
     private let pasteboard: UIPasteboard
 
-    public init(pasteboard: UIPasteboard = .general,) {
+    public init(pasteboard: UIPasteboard = .general) {
         self.pasteboard = pasteboard
     }
 
     public func set(text: String) {
-        pasteboard.setItems([[kUTTypeUTF8PlainText as String: text]])
+        pasteboard.string = text
     }
 
     public func text() -> String? {
