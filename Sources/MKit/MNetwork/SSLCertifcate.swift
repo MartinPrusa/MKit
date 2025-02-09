@@ -9,9 +9,7 @@ import Foundation
 import Security
 
 public struct SSLCertificate {
-    private let fileName: String
-    private let suffix: String
-    public private(set) var certificate: SecCertificate!
+    public let certificate: SecCertificate
 
     /**
      Creates representation of your DER type SSL public certificate
@@ -24,13 +22,13 @@ public struct SSLCertificate {
      - Returns: optional SSLCertificate when possible to create from your file name and suffix
      */
     public init?(fileName: String, suffix: String) {
-        self.fileName = fileName
-        self.suffix = suffix
-        guard let cert = createCertificate() else { return nil }
+        guard let cert = SecCertificateCreate().createCertificate(fileName: fileName, suffix: suffix) else { return nil }
         certificate = cert
     }
+}
 
-    private func createCertificate() -> SecCertificate? {
+struct SecCertificateCreate {
+    func createCertificate(fileName: String, suffix: String) -> SecCertificate? {
         do {
             guard let filePath = Bundle.main.path(forResource: fileName, ofType: suffix) else { return nil }
             let data = try Data(contentsOf: URL(fileURLWithPath: filePath))
