@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import X509
 
 public final class URLSessionFactory: NSObject {
     private let backgroundQueue = OperationQueue()
@@ -167,7 +168,12 @@ extension URLSessionFactory: URLSessionDelegate {
             return
         }
 
-        guard let serverTrust = challenge.protectionSpace.serverTrust, let certificate = SecTrustGetCertificateAtIndex(serverTrust, 0) else {
+        guard
+            let serverTrust = challenge.protectionSpace.serverTrust,
+            let certificates = SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate],
+            let secCertificate = certificates.first,
+            let remoteCertificate = try? Certificate(secCertificate)
+        else {
             completionHandler(.performDefaultHandling, nil)
             return
         }
@@ -184,16 +190,15 @@ extension URLSessionFactory: URLSessionDelegate {
                 var error: CFError? = nil
                 let isServerTrusted = SecTrustEvaluateWithError(serverTrust, &error)
 
-                guard let sslCertificate = sslCertificate else {
+                guard
+                    let sslCertificate = sslCertificate,
+                    let localCertificate = try? Certificate(sslCertificate.certificate)
+                else {
                     completionHandler(.cancelAuthenticationChallenge, nil)
                     return
                 }
 
-                // Get remote certification data
-                let remoteCertificateData: Data = SecCertificateCopyData(certificate) as Data
-                let localCertificateData: Data = SecCertificateCopyData(sslCertificate.certificate) as Data
-
-                if isServerTrusted == true, remoteCertificateData == localCertificateData {
+                if isServerTrusted == true, remoteCertificate.issuer == localCertificate.issuer {
                     let credential:URLCredential = URLCredential(trust: serverTrust)
                     completionHandler(.useCredential, credential)
                 } else {
