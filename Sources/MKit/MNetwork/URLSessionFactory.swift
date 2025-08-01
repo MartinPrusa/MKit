@@ -86,7 +86,7 @@ public final class URLSessionFactory: NSObject {
             .eraseToAnyPublisher()
     }
 
-    public func plainLoadDecodedPublisher<T: Decodable>(resource: UrlResponseResource, decodable: T.Type) -> AnyPublisher<T, UrlResponseResource.ErrorResponse> {
+    public func plainLoadDecodedPublisher<T: Decodable>(resource: UrlResponseResource, decodable: T.Type, customDecoder: JSONDecoder? = nil) -> AnyPublisher<T, UrlResponseResource.ErrorResponse> {
         isSSLPiningEnabled = resource.isSslPinningEnabled
 
         return session.dataTaskPublisher(for: resource.request)
@@ -97,7 +97,7 @@ public final class URLSessionFactory: NSObject {
 
                 return data
             })
-            .decode(type: decodable, decoder: JSONDecoder())
+            .decode(type: decodable, decoder: customDecoder ?? JSONDecoder())
             .mapError({ error -> UrlResponseResource.ErrorResponse in
                 if let err = error as? UrlResponseResource.ErrorResponse {
                     return err
@@ -110,7 +110,7 @@ public final class URLSessionFactory: NSObject {
     }
 
     @available(iOS 15.0.0, *)
-    public func plainLoadDecoded<T: Decodable>(resource: UrlResponseResource, decodable: T.Type) async -> Result<T, UrlResponseResource.ErrorResponse> {
+    public func plainLoadDecoded<T: Decodable>(resource: UrlResponseResource, decodable: T.Type, customDecoder: JSONDecoder? = nil) async -> Result<T, UrlResponseResource.ErrorResponse> {
         isSSLPiningEnabled = resource.isSslPinningEnabled
 
         guard
@@ -120,7 +120,7 @@ public final class URLSessionFactory: NSObject {
         else {
             return .failure(.unknownError)
         }
-        let decoder = JSONDecoder()
+        let decoder = customDecoder ?? JSONDecoder()
         guard let decoded = try? decoder.decode(decodable, from: data) else {
             return .failure(.init(response: response, err: nil, data: data))
         }
