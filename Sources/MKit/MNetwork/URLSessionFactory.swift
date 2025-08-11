@@ -110,21 +110,24 @@ public final class URLSessionFactory: NSObject {
     }
 
     @available(iOS 15.0.0, *)
-    public func plainLoadDecoded<T: Decodable>(resource: UrlResponseResource, decodable: T.Type, customDecoder: JSONDecoder? = nil) async -> Result<T, UrlResponseResource.ErrorResponse> {
+    public func plainLoadDecoded<T: Decodable>(resource: UrlResponseResource, decodable: T.Type, customDecoder: JSONDecoder? = nil) async throws(UrlResponseResource.ErrorResponse) -> T {
         isSSLPiningEnabled = resource.isSslPinningEnabled
-
-        guard
-            let (data, response) = try? await session.data(for: resource.request, delegate: self),
-            let urlResponse = response as? HTTPURLResponse,
-            self.successfulStatusCodes.contains(urlResponse.statusCode) == true
-        else {
-            return .failure(.unknownError)
+        do {
+            let (data, response) = try await session.data(for: resource.request, delegate: self)
+            guard
+                let urlResponse = response as? HTTPURLResponse,
+                self.successfulStatusCodes.contains(urlResponse.statusCode) == true
+            else {
+                throw UrlResponseResource.ErrorResponse.unknownError
+            }
+            let decoder = customDecoder ?? JSONDecoder()
+            guard let decoded = try? decoder.decode(decodable, from: data) else {
+                throw UrlResponseResource.ErrorResponse(response: response, err: nil, data: data)
+            }
+            return decoded
+        } catch(let error) {
+            throw UrlResponseResource.ErrorResponse(response: nil, err: error as NSError, data: nil)
         }
-        let decoder = customDecoder ?? JSONDecoder()
-        guard let decoded = try? decoder.decode(decodable, from: data) else {
-            return .failure(.init(response: response, err: nil, data: data))
-        }
-        return .success(decoded)
     }
 
     deinit {
