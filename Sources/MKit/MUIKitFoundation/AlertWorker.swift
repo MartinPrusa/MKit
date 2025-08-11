@@ -12,16 +12,19 @@ public final class AlertWorker {
 
     // MARK: Show
 
+    @MainActor
     public static func showConfirmationAlert(title: String?, message: String?, cancelTitle: String? = nil, okTitle: String?, presentController: UIViewController, okAction: (() -> ())?) {
         let alert = AlertWorker.alertWithCancelAndAction(title: title, message: message, cancelTitle: cancelTitle, okTitle: okTitle, okAction: okAction, cancelAction: nil)
         presentController.present(alert, animated: true, completion: nil)
     }
 
+    @MainActor
     public static func showConfirmationAlert(title: String?, message: String?, cancelTitle: String? = nil, okTitle: String?, presentController: UIViewController, okAction: @escaping () -> (), cancelAction: @escaping () -> ()) {
         let alert = AlertWorker.alertWithCancelAndAction(title: title, message: message, cancelTitle: cancelTitle, okTitle: okTitle, okAction: okAction, cancelAction: cancelAction)
         presentController.present(alert, animated: true, completion: nil)
     }
 
+    @MainActor
     public  static func showAlert(title: String?, message: String?, okTitle: String? = "OK", presentController: UIViewController, okAction: (() -> ())? = nil) {
         let alert = AlertWorker.alertWithCancel(title: title, message: message, okTitle: okTitle, okAction: okAction)
         presentController.present(alert, animated: true, completion: nil)
@@ -29,6 +32,7 @@ public final class AlertWorker {
 
     // MARK: Create alert
 
+    @MainActor
     public static func alertWithCancelAndAction(title: String?, message: String?, cancelTitle: String?, okTitle: String?, okAction: (() -> ())?, cancelAction: (() -> ())? = nil) -> UIAlertController {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
 
@@ -51,6 +55,7 @@ public final class AlertWorker {
         return alert
     }
 
+    @MainActor
     public static func alertWithCancel(title: String?, message: String?, okTitle: String?, okAction: (() -> ())? = nil) -> UIAlertController {
         let alert = UIAlertController(title: title, message: message, preferredStyle: UIAlertController.Style.alert)
         alert.addAction(UIAlertAction(title: okTitle, style: .cancel, handler: { _ in
@@ -61,6 +66,7 @@ public final class AlertWorker {
         return alert
     }
 
+    @MainActor
     public static func alertWithCancel(cancelTitle: String?, cancelAction: (() -> Void)?, title: String?, message: String?, actions: [UIAlertAction]) -> UIAlertController {
         let alert = UIAlertController(title: title, message: message, preferredStyle: UIAlertController.Style.alert)
 
@@ -79,12 +85,13 @@ public final class AlertWorker {
         return alert
     }
 
+    @MainActor
     public static func alert(withTitle title: String?, message: String?) -> UIAlertController {
         return UIAlertController(title: title, message: message, preferredStyle: UIAlertController.Style.alert)
     }
 
     // MARK: Action sheet
-
+    @MainActor
     public func actionSheet(title: String?, message: String?, sourceView: UIView) -> UIAlertController {
         let actionSheet = UIAlertController(title: title, message: message, preferredStyle: .actionSheet)
 

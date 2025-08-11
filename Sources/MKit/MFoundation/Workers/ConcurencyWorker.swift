@@ -6,17 +6,17 @@
 //
 
 import Foundation
-public final class ConcurrencyWorker {
+public final class ConcurrencyWorker: Sendable {
     public static let shared = ConcurrencyWorker()
 
     // MARK: Background thread
 
-    public func performOnBackgroundThread(_ block: @escaping ()->Void) {
+    public func performOnBackgroundThread(_ block: @Sendable @escaping ()->Void) {
         DispatchQueue.global(qos: .default).async(execute: block)
     }
 
     // MARK: Main thread
-    public func performOnMainThread(_ block: @escaping ()->Void) {
+    public func performOnMainThread(_ block: @Sendable @escaping ()->Void) {
         DispatchQueue.main.async(execute: block)
     }
 }

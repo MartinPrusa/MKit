@@ -9,7 +9,7 @@ import Foundation
 import Combine
 import X509
 
-public final class URLSessionFactory: NSObject {
+public final class URLSessionFactory: NSObject, @unchecked Sendable {
     private let backgroundQueue = OperationQueue()
     private lazy var session: URLSession = {
         return URLSession(configuration: URLSessionConfiguration.default, delegate: self, delegateQueue: backgroundQueue)
@@ -29,7 +29,7 @@ public final class URLSessionFactory: NSObject {
     }
 
     @discardableResult
-    public func plainLoad(resource: UrlResponseResource, completition: @escaping(_ result: Result<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse>) -> Void) -> URLSessionDataTask {
+    public func plainLoad(resource: UrlResponseResource, completition: @Sendable @escaping(_ result: Result<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse>) -> Void) -> URLSessionDataTask {
         isSSLPiningEnabled = resource.isSslPinningEnabled
 
         if self.isDebugEndabled == true {

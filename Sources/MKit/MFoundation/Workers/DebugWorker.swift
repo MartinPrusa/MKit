@@ -6,7 +6,7 @@
 //
 
 import Foundation
-public struct DebugWorker {
+public struct DebugWorker: Sendable {
     let isDebug: Bool = {
         var isDebug = false
         // function with a side effect and Bool return value that we can pass into assert()
