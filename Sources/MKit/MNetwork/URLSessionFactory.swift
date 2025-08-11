@@ -115,8 +115,7 @@ public final class URLSessionFactory: NSObject, @unchecked Sendable {
         do {
             let (data, response) = try await session.data(for: resource.request, delegate: self)
             guard
-                let urlResponse = response as? HTTPURLResponse,
-                self.successfulStatusCodes.contains(urlResponse.statusCode) == true
+                let urlResponse = response as? HTTPURLResponse
             else {
                 throw UrlResponseResource.ErrorResponse.unknownError
             }
