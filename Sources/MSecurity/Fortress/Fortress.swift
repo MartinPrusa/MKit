@@ -8,7 +8,7 @@
 import Foundation
 import CryptoKit
 
-public final class Fortress {
+public final class Fortress: Sendable {
     // MARK: - initialization
     public static let shared = Fortress()
     private init() { }
