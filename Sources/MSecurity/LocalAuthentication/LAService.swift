@@ -23,7 +23,7 @@ public final class LAServiceFactory {
     }
 }
 
-public final class LAService {
+public final class LAService: Sendable {
     public static let shared = LAService()
 
     private let policy: LAPolicy = .deviceOwnerAuthenticationWithBiometrics
@@ -57,7 +57,7 @@ public final class LAService {
 
 // MARK: - Login local authentication
 
-public enum BiometricPolicyState {
+public enum BiometricPolicyState: Sendable {
     case systemCancel
     case userFallBack
     case userCancel
