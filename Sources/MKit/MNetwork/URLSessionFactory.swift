@@ -9,64 +9,183 @@ import Foundation
 import Combine
 import X509
 
-public final class URLSessionFactory: NSObject, @unchecked Sendable {
+private final class WeakBox<T: AnyObject>: @unchecked Sendable {
+    weak var value: T?
+    init() {}
+}
+
+private final class SessionDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate, Sendable {
+    private let didReceiveChallenge: @Sendable (
+        URLSession,
+        URLAuthenticationChallenge,
+        @escaping @Sendable (
+            URLSession.AuthChallengeDisposition,
+            URLCredential?
+        ) -> Void
+    ) -> Void
+
+    private let taskDidComplete: @Sendable (
+        URLSession,
+        URLSessionTask,
+        Error?
+    ) -> Void
+
+    init(
+        didReceiveChallenge: @escaping @Sendable (
+            URLSession,
+            URLAuthenticationChallenge,
+            @escaping @Sendable (
+                URLSession.AuthChallengeDisposition,
+                URLCredential?
+            ) -> Void
+        ) -> Void,
+        taskDidComplete: @escaping @Sendable (
+            URLSession,
+            URLSessionTask,
+            Error?
+        ) -> Void
+    ) {
+        self.didReceiveChallenge = didReceiveChallenge
+        self.taskDidComplete = taskDidComplete
+    }
+
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        didReceiveChallenge(session, challenge, completionHandler)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        taskDidComplete(session, task, error)
+    }
+}
+
+private actor SessionState {
+    var tasks: [URLSessionTask] = []
+    var isSSLPiningEnabled = false
+    var sslCertificate: SSLCertificate?
+    var isDebugEnabled = false
+
+    func append(_ t: URLSessionTask) { tasks.append(t) }
+    func remove(id: Int) { tasks.removeAll { $0.taskIdentifier == id } }
+    func removeAllNotRunning() { tasks.removeAll { $0.state != .running } }
+
+    // config helpers
+    func setDebugEnabled(_ value: Bool) { isDebugEnabled = value }
+    func setSSLCertificate(_ cert: SSLCertificate?) { sslCertificate = cert }
+    func setSSLPinningEnabled(_ value: Bool) { isSSLPiningEnabled = value }
+}
+
+public final class URLSessionFactory: NSObject, Sendable {
     private let backgroundQueue = OperationQueue()
-    private lazy var session: URLSession = {
-        return URLSession(configuration: URLSessionConfiguration.default, delegate: self, delegateQueue: backgroundQueue)
-    }()
-    private lazy var debug = DebugWorker()
-    private var tasks: [URLSessionTask] = [URLSessionTask]()
+    private let session: URLSession
+    private let debug = DebugWorker()
     private let successfulStatusCodes = 200 ..< 300
 
     public static let shared = URLSessionFactory()
-    public var isDebugEndabled = false
-    private var isSSLPiningEnabled = false
-    public var sslCertificate: SSLCertificate?
-    private var isRemovingAllNotRunningTasks = false
+    private let delegate: SessionDelegate
+    private let state = SessionState()
 
-    private override init() {
-        super.init()
+    // MARK: - Public configuration (async, actor-backed)
+
+    public func setDebugEnabled(_ newValue: Bool) async {
+        await state.setDebugEnabled(newValue)
     }
 
-    @discardableResult
-    public func plainLoad(resource: UrlResponseResource, completition: @Sendable @escaping(_ result: Result<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse>) -> Void) -> URLSessionDataTask {
-        isSSLPiningEnabled = resource.isSslPinningEnabled
+    public func debugEnabled() async -> Bool {
+        await state.isDebugEnabled
+    }
 
-        if self.isDebugEndabled == true {
-            self.debug.logRequest(resource.request)
+    public func setSSLCertificate(_ cert: SSLCertificate?) async {
+        await state.setSSLCertificate(cert)
+    }
+
+    public func currentSSLCertificate() async -> SSLCertificate? {
+        await state.sslCertificate
+    }
+
+    private override init() {
+        // Build delegate without capturing `self` before super.init
+        let owner = WeakBox<URLSessionFactory>()
+        self.delegate = SessionDelegate(
+            didReceiveChallenge: { [owner] _, challenge, completion in
+                guard let strong = owner.value else {
+                    completion(.performDefaultHandling, nil)
+                    return
+                }
+                Task { await strong.handle(challenge: challenge, completion: completion) }
+            },
+            taskDidComplete: { [owner] _, task, _ in
+                guard let strong = owner.value else { return }
+                Task { await strong.state.remove(id: task.taskIdentifier) }
+            }
+        )
+
+        self.session = URLSession(configuration: .default,
+                                  delegate: delegate,
+                                  delegateQueue: backgroundQueue)
+        super.init()
+        owner.value = self
+    }
+
+    private func handle(challenge: URLAuthenticationChallenge,
+                        completion: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) async {
+        let pinning = await state.isSSLPiningEnabled
+        guard pinning else {
+            completion(.performDefaultHandling, nil)
+            return
         }
 
-        let task = session.dataTask(with: resource.request, completionHandler: { (data, response, err) in
-            if let error = err {
-                if self.isDebugEndabled == true {
-                    self.debug.logError(error, response: response)
-                }
+        guard
+            let serverTrust = challenge.protectionSpace.serverTrust,
+            let certificates = SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate],
+            let secCertificate = certificates.first,
+            let remoteCertificate = try? Certificate(secCertificate)
+        else {
+            completion(.performDefaultHandling, nil)
+            return
+        }
 
-                let defaultErr = UrlResponseResource.ErrorResponse(response: response, err: error, data: data)
+        switch challenge.protectionSpace.authenticationMethod {
+        case NSURLAuthenticationMethodServerTrust:
+            let policies = NSMutableArray()
+            policies.add(SecPolicyCreateSSL(true, (challenge.protectionSpace.host as CFString)))
+            SecTrustSetPolicies(serverTrust, policies)
 
-                completition(.failure(defaultErr))
+            var error: CFError? = nil
+            let isServerTrusted = SecTrustEvaluateWithError(serverTrust, &error)
+
+            let localCert = await state.sslCertificate
+            guard
+                isServerTrusted,
+                let sslCertificate = localCert,
+                let secCertificate = sslCertificate.createCertificate(),
+                let localCertificate = try? Certificate(secCertificate)
+            else {
+                completion(.cancelAuthenticationChallenge, nil)
                 return
             }
 
-            self.removeAllNotRunningTasks()
-
-            if self.isDebugEndabled == true {
-                self.debug.logResponse(response, data: data)
+            if remoteCertificate.issuer == localCertificate.issuer {
+                let credential = URLCredential(trust: serverTrust)
+                completion(.useCredential, credential)
+            } else {
+                completion(.cancelAuthenticationChallenge, nil)
             }
 
-            let data = UrlResponseResource.ResultConstruct(response: response, data: data)
+        case NSURLAuthenticationMethodHTTPBasic, NSURLAuthenticationMethodHTTPDigest, NSURLAuthenticationMethodNTLM,
+             NSURLAuthenticationMethodNegotiate, NSURLAuthenticationMethodClientCertificate:
+            guard challenge.previousFailureCount == 0 else {
+                completion(.rejectProtectionSpace, nil)
+                return
+            }
+            completion(.performDefaultHandling, nil)
 
-            completition(.success(data))
-        })
-        tasks.append(task)
-        task.resume()
-
-        return task
+        default:
+            completion(.performDefaultHandling, nil)
+        }
     }
 
     public func plainLoadPublisher(resource: UrlResponseResource) -> AnyPublisher<UrlResponseResource.ResultConstruct, UrlResponseResource.ErrorResponse> {
-        isSSLPiningEnabled = resource.isSslPinningEnabled
-
         return session.dataTaskPublisher(for: resource.request)
             .tryMap({ (data, response) -> UrlResponseResource.ResultConstruct in
                 if let response = response as? HTTPURLResponse, self.successfulStatusCodes.contains(response.statusCode) == false {
@@ -87,7 +206,6 @@ public final class URLSessionFactory: NSObject, @unchecked Sendable {
     }
 
     public func plainLoadDecodedPublisher<T: Decodable>(resource: UrlResponseResource, decodable: T.Type, customDecoder: JSONDecoder? = nil) -> AnyPublisher<T, UrlResponseResource.ErrorResponse> {
-        isSSLPiningEnabled = resource.isSslPinningEnabled
 
         return session.dataTaskPublisher(for: resource.request)
             .tryMap({ (data, response) -> Data in
@@ -109,11 +227,13 @@ public final class URLSessionFactory: NSObject, @unchecked Sendable {
             .eraseToAnyPublisher()
     }
 
-    @available(iOS 15.0.0, *)
     public func plainLoadDecoded<T: Decodable>(resource: UrlResponseResource, decodable: T.Type, customDecoder: JSONDecoder? = nil) async throws(UrlResponseResource.ErrorResponse) -> T {
-        isSSLPiningEnabled = resource.isSslPinningEnabled
         do {
-            let (data, response) = try await session.data(for: resource.request, delegate: self)
+            if await self.debugEnabled() {
+                 self.debug.logRequest(resource.request)
+            }
+
+            let (data, response) = try await session.data(for: resource.request, delegate: delegate)
             guard
                 let urlResponse = response as? HTTPURLResponse
             else {
@@ -121,10 +241,40 @@ public final class URLSessionFactory: NSObject, @unchecked Sendable {
             }
             let decoder = customDecoder ?? JSONDecoder()
             guard let decoded = try? decoder.decode(decodable, from: data) else {
-                throw UrlResponseResource.ErrorResponse(response: response, err: nil, data: data)
+                throw UrlResponseResource.ErrorResponse(response: urlResponse, err: nil, data: data)
             }
             return decoded
         } catch(let error) {
+            throw UrlResponseResource.ErrorResponse(response: nil, err: error as NSError, data: nil)
+        }
+    }
+
+    public func plainLoad(resource: UrlResponseResource) async throws(UrlResponseResource.ErrorResponse) -> UrlResponseResource.ResultConstruct {
+        do {
+            if await self.debugEnabled() {
+                 self.debug.logRequest(resource.request)
+            }
+
+            let (data, response) = try await session.data(for: resource.request, delegate: delegate)
+            guard
+                let urlResponse = response as? HTTPURLResponse
+            else {
+                if await self.debugEnabled() {
+                     self.debug.logError(UrlResponseResource.ErrorResponse.unknownError, response: response)
+                }
+
+                throw UrlResponseResource.ErrorResponse.unknownError
+            }
+
+            if await self.debugEnabled() {
+                 self.debug.logResponse(urlResponse, data: data)
+            }
+
+            return UrlResponseResource.ResultConstruct(response: response, data: data)
+        } catch(let error) {
+            if await self.debugEnabled() {
+                 self.debug.logError(error, response: nil)
+            }
             throw UrlResponseResource.ErrorResponse(response: nil, err: error as NSError, data: nil)
         }
     }
@@ -137,86 +287,8 @@ public final class URLSessionFactory: NSObject, @unchecked Sendable {
 
 extension URLSessionFactory {
     public func cancelAllTasks() {
-        guard tasks.isEmpty == false else { return }
-        tasks.forEach({ $0.cancel() })
-    }
-
-    fileprivate func removeAllNotRunningTasks() {
-        guard tasks.isEmpty == false else { return }
-        tasks.removeAll(where: { $0.state != .running })
-    }
-
-    fileprivate func removeTask(by identifier: Int) {
-        guard tasks.isEmpty == false else { return }
-        tasks.removeAll(where: { $0.taskIdentifier == identifier })
-    }
-}
-
-extension URLSessionFactory: URLSessionTaskDelegate {
-    public func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(nil)
-    }
-
-    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        removeTask(by: task.taskIdentifier)
-    }
-}
-
-extension URLSessionFactory: URLSessionDelegate {
-    public func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-
-        guard isSSLPiningEnabled == true else {
-            completionHandler(.performDefaultHandling, nil)
-            return
-        }
-
-        guard
-            let serverTrust = challenge.protectionSpace.serverTrust,
-            let certificates = SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate],
-            let secCertificate = certificates.first,
-            let remoteCertificate = try? Certificate(secCertificate)
-        else {
-            completionHandler(.performDefaultHandling, nil)
-            return
-        }
-
-        switch challenge.protectionSpace.authenticationMethod {
-            case NSURLAuthenticationMethodServerTrust:
-
-                // Set SSL policies for domain name check
-                let policies = NSMutableArray()
-                policies.add(SecPolicyCreateSSL(true, (challenge.protectionSpace.host as CFString)))
-                SecTrustSetPolicies(serverTrust, policies)
-
-                // Evaluate server certificate
-                var error: CFError? = nil
-                let isServerTrusted = SecTrustEvaluateWithError(serverTrust, &error)
-
-                guard
-                    let sslCertificate = sslCertificate,
-                    let localCertificate = try? Certificate(sslCertificate.certificate)
-                else {
-                    completionHandler(.cancelAuthenticationChallenge, nil)
-                    return
-                }
-
-                if isServerTrusted == true, remoteCertificate.issuer == localCertificate.issuer {
-                    let credential:URLCredential = URLCredential(trust: serverTrust)
-                    completionHandler(.useCredential, credential)
-                } else {
-                    completionHandler(.cancelAuthenticationChallenge, nil)
-                }
-
-            case NSURLAuthenticationMethodHTTPBasic, NSURLAuthenticationMethodHTTPDigest, NSURLAuthenticationMethodNTLM,
-                   NSURLAuthenticationMethodNegotiate, NSURLAuthenticationMethodClientCertificate:
-                guard challenge.previousFailureCount == 0 else {
-                    completionHandler(.rejectProtectionSpace, nil)
-                    return
-                }
-
-                completionHandler(.performDefaultHandling, nil)
-            default:
-                completionHandler(.performDefaultHandling, nil)
+        session.getAllTasks { tasks in
+            tasks.forEach { $0.cancel() }
         }
     }
 }
