@@ -10,12 +10,10 @@ import Foundation
 public struct UrlResponseResource {
     public let request: URLRequest
     public let result: Result<ResultConstruct, ErrorResponse>?
-    public let isSslPinningEnabled: Bool
 
-    public init(request: URLRequest, result: Result<ResultConstruct, ErrorResponse>?, isSslPinningEnabled: Bool = false) {
+    public init(request: URLRequest, result: Result<ResultConstruct, ErrorResponse>?) {
         self.request = request
         self.result = result
-        self.isSslPinningEnabled = isSslPinningEnabled
     }
 
     public struct ResultConstruct: Serializable {
