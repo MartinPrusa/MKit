@@ -103,6 +103,14 @@ public final class URLSessionFactory: NSObject, Sendable {
         await state.sslCertificate
     }
 
+    public func setSSLPinningEnabled(_ newValue: Bool) async {
+        await state.setSSLPinningEnabled(newValue)
+    }
+
+    public func isSSLPinningEnabled() async -> Bool {
+        await state.isSSLPiningEnabled
+    }
+
     private override init() {
         // Build delegate without capturing `self` before super.init
         let owner = WeakBox<URLSessionFactory>()
