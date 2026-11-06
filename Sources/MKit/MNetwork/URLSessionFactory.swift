@@ -173,7 +173,7 @@ public final class URLSessionFactory: NSObject, Sendable {
                 return
             }
 
-            if remoteCertificate.issuer == localCertificate.issuer {
+            if remoteCertificate.publicKey == localCertificate.publicKey {
                 let credential = URLCredential(trust: serverTrust)
                 completion(.useCredential, credential)
             } else {
