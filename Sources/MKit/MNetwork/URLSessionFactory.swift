@@ -145,12 +145,14 @@ public final class URLSessionFactory: NSObject, Sendable {
 
         guard
             let serverTrust = challenge.protectionSpace.serverTrust,
-            let certificates = SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate],
-            let secCertificate = certificates.first,
-            let remoteCertificate = try? Certificate(secCertificate)
+            let certificates = SecTrustCopyCertificateChain(serverTrust) as? [SecCertificate]
         else {
             completion(.performDefaultHandling, nil)
             return
+        }
+        
+        let remoteCertificates = certificates.compactMap { secCertificate in
+            try? Certificate(secCertificate)
         }
 
         switch challenge.protectionSpace.authenticationMethod {
@@ -173,7 +175,7 @@ public final class URLSessionFactory: NSObject, Sendable {
                 return
             }
 
-            if remoteCertificate.publicKey == localCertificate.publicKey {
+            if remoteCertificates.contains(where: { $0.publicKey == localCertificate.publicKey }) {
                 let credential = URLCredential(trust: serverTrust)
                 completion(.useCredential, credential)
             } else {
